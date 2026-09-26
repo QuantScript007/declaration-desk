@@ -575,7 +575,7 @@ $("#readBtn").onclick = async () => {
     const n = results.reduce((a,r)=>a+(Array.isArray(r.items)?r.items.length:0),0);
     setStatus("ok", `Read ${n} line${n===1?"":"s"}. Check each line against the page, then review the checks below.`);
   }catch(e){
-    const msg = {
+    let msg = {
       cancelled:"Stopped.",
       not_granted:"Claude access was not allowed for this page, so the documents can't be read. You can still type the lines in.",
       sampling_disabled:"Claude isn't available on this account, so the documents can't be read.",
@@ -588,8 +588,12 @@ $("#readBtn").onclick = async () => {
       refused:"Claude declined to read these pages. Check they are trade documents.",
       empty_completion:"Claude returned nothing for these pages. Try a clearer scan.",
       bad_key:"The API key was rejected. Check it in the API key box.",
-      bad_model:"That model name wasn't found. Check the Model field in the API key box."
+      bad_model:"That model name wasn't found. Check the Model field in the API key box.",
+      no_credit:"Your Anthropic account has no credit. Add credit under Billing at console.anthropic.com, wait a minute, then try again.",
+      overloaded:"Claude is busy right now. Wait a minute and try again.",
+      network:"Couldn't reach the Anthropic API. Check your internet connection, and turn off any ad blocker or VPN that might block api.anthropic.com."
     }[e?.code] || "Reading failed because of a connection or service error. Try again.";
+    if(e?.detail) msg += " Details: " + e.detail;
     if(results.length){ applyResults(results); setStatus("err", msg + " Lines from earlier batches were kept."); }
     else setStatus(e?.code==="cancelled"?"busy":"err", msg);
     if(e?.code==="cancelled") setStatus(null);
@@ -608,9 +612,19 @@ $("#apiKey").addEventListener("input", () => { try{ localStorage.setItem(KEY_STO
 $("#modelIn").addEventListener("input", e => { try{ localStorage.setItem(KEY_STORE+"-model", e.target.value.trim()); }catch(err){} });
 keyLabel();
 const blobToB64 = b => new Promise((res,rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(b); });
+async function shrink(blob, maxSide=1800){
+  // Keep every page under the API's 5 MB / 8000 px image limits.
+  try{
+    const bmp = await createImageBitmap(blob);
+    const s = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas"); c.width = Math.round(bmp.width*s); c.height = Math.round(bmp.height*s);
+    const cx = c.getContext("2d"); cx.fillStyle="#fff"; cx.fillRect(0,0,c.width,c.height); cx.drawImage(bmp,0,0,c.width,c.height);
+    return await new Promise(r => c.toBlob(r,"image/jpeg",0.88));
+  }catch(e){ return blob; }
+}
 async function apiRead(prompt, blobs, signal){
   const content = [];
-  for(const b of blobs) content.push({type:"image", source:{type:"base64", media_type:b.type||"image/jpeg", data: await blobToB64(b)}});
+  for(const b of blobs){ const s = await shrink(b); content.push({type:"image", source:{type:"base64", media_type:s.type||"image/jpeg", data: await blobToB64(s)}}); }
   content.push({type:"text", text: prompt});
   let res;
   try{
@@ -619,10 +633,16 @@ async function apiRead(prompt, blobs, signal){
       headers:{"content-type":"application/json","x-api-key":apiKey(),"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
       body: JSON.stringify({model: ($("#modelIn").value||"claude-sonnet-5").trim(), max_tokens:16000, messages:[{role:"user", content}]})
     });
-  }catch(e){ throw {code: e?.name==="AbortError" ? "cancelled" : "upstream_error"}; }
+  }catch(e){
+    if(e?.name==="AbortError") throw {code:"cancelled"};
+    throw {code:"network", detail: String(e?.message||e)};
+  }
   if(!res.ok){
-    const code = res.status===401 ? "bad_key" : res.status===429 ? "rate_limited" : res.status===413 ? "prompt_too_large" : res.status===404 ? "bad_model" : "upstream_error";
-    throw {code};
+    let detail = ""; try{ const j = await res.json(); detail = j?.error?.message || JSON.stringify(j); }catch(e){ detail = res.statusText; }
+    detail = `(${res.status}) ${detail}`;
+    const low = /credit balance/i.test(detail);
+    const code = low ? "no_credit" : res.status===401 ? "bad_key" : res.status===429 ? "rate_limited" : res.status===413 ? "prompt_too_large" : res.status===404 ? "bad_model" : res.status===529 ? "overloaded" : "upstream_error";
+    throw {code, detail};
   }
   const out = await res.json();
   const text = (out.content||[]).filter(c=>c.type==="text").map(c=>c.text).join("");
