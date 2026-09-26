@@ -33,12 +33,14 @@ It's a single static page: `index.html`. No build step and no server code.
 
 ### Reading documents
 
-- **Inside Claude (claude.ai artifact)** – reading uses the viewer's own Claude account.
-- **Anywhere else** – open the **Anthropic API key** box and paste a key from [console.anthropic.com](https://console.anthropic.com).
-  - The key is kept only in that browser's localStorage.
-  - The page calls the Anthropic API directly from the browser, and reads are billed to that key.
+- **No key needed (default)** – pages are read free, on your own device, with Tesseract OCR. Nothing is uploaded anywhere.
+  - Clear, typed invoices work well. Handwriting, stamps over text, and faint or skewed scans don't.
+  - HS codes are only keyword guesses for common goods.
+  - Digital (text) PDFs skip OCR and use their own text, so they are faster and more accurate.
+- **Optional Anthropic API key (better accuracy)** – open the *Better accuracy* box and paste a key from [console.anthropic.com](https://console.anthropic.com). Claude then reads the pages, merges packing lists and suggests HS codes per line.
+  - The key is kept only in that browser, and reads are billed to that key.
   - Don't enter a key on a shared or public computer.
-- **Model** – the model field defaults to `claude-sonnet-5`.
+- **Inside Claude (claude.ai artifact)** – reading uses the viewer's own Claude account.
 
 Scanned PDFs are rendered page by page with pdf.js. Text-based PDFs also send their text layer, so figures can be cross-checked.
 

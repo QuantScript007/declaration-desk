@@ -156,7 +156,8 @@ body{margin:0}
             <span>Scanned PDF, phone photo, JPG or PNG. Several files at once is fine.</span>
           </label>
           <details class="keybox" id="keybox" hidden>
-            <summary>Anthropic API key <span class="hint" id="keyState" style="margin:0"></span></summary>
+            <summary>Better accuracy (optional): Anthropic API key <span class="hint" id="keyState" style="margin:0"></span></summary>
+            <div class="hint">Without a key, pages are read free on your device. Typed invoices read well; handwriting and faint scans don't, and HS codes are only keyword guesses. With a key, Claude reads the pages and classifies each line.</div>
             <div class="f">
               <label for="apiKey">Key (starts with sk-ant-). Stored only in this browser.</label>
               <input class="in" id="apiKey" type="password" autocomplete="off" placeholder="sk-ant-…">
@@ -549,14 +550,14 @@ ${SHAPE}`;
 
 $("#readBtn").onclick = async () => {
   if(!pages.length) return;
-  let maxImg = 0, useApi = false;
+  let maxImg = 0, useApi = false, useOcr = false;
   if(sample){
     let limits = null; try{ limits = await sample.limits(); }catch(e){}
     maxImg = limits?.images?.maxCount || 0;
   }
   if(!maxImg){
     if(apiKey()){ useApi = true; maxImg = 20; }
-    else { $("#keybox").hidden=false; $("#keybox").open=true; $("#apiKey").focus(); setStatus("err","Add your Anthropic API key above to read documents. You can still type the lines in by hand."); return; }
+    else { useOcr = true; maxImg = pages.length; }
   }
   const batches = []; for(let i=0;i<pages.length;i+=maxImg) batches.push(pages.slice(i,i+maxImg));
   ctl = new AbortController(); $("#stopBtn").hidden=false; $("#readBtn").disabled=true;
@@ -565,7 +566,7 @@ $("#readBtn").onclick = async () => {
     for(let b=0;b<batches.length;b++){
       const batch = batches[b];
       setStatus("busy", `Reading ${batch.length} page${batch.length>1?"s":""}${batches.length>1?` (batch ${b+1} of ${batches.length})`:""}. Dense invoices take up to a minute.`);
-      const data = useApi ? await apiRead(buildPrompt(batch,b,batches.length), batch.map(p=>p.blob), ctl.signal) : await sample.json(buildPrompt(batch,b,batches.length), {
+      const data = useOcr ? await ocrRead(batch, ctl.signal) : useApi ? await apiRead(buildPrompt(batch,b,batches.length), batch.map(p=>p.blob), ctl.signal) : await sample.json(buildPrompt(batch,b,batches.length), {
         images: batch.map(p=>p.blob), signal: ctl.signal, modelTier:"default",
         onText: ({text}) => setStatus("busy", `Writing out lines${batches.length>1?` (batch ${b+1} of ${batches.length})`:""}… ${Math.round(text.length/100)/10}k characters`)
       });
@@ -573,7 +574,9 @@ $("#readBtn").onclick = async () => {
     }
     applyResults(results);
     const n = results.reduce((a,r)=>a+(Array.isArray(r.items)?r.items.length:0),0);
-    setStatus("ok", `Read ${n} line${n===1?"":"s"}. Check each line against the page, then review the checks below.`);
+    setStatus("ok", useOcr
+      ? `Read ${n} line${n===1?"":"s"} on this device. Free reading is less accurate: check every line and HS code against the page.`
+      : `Read ${n} line${n===1?"":"s"}. Check each line against the page, then review the checks below.`);
   }catch(e){
     let msg = {
       cancelled:"Stopped.",
@@ -603,11 +606,140 @@ $("#readBtn").onclick = async () => {
 };
 $("#stopBtn").onclick = () => ctl?.abort();
 
+/* ---------- free mode: on-device OCR (Tesseract.js) + invoice parser ---------- */
+let tessLoading = null;
+function loadTesseract(){
+  if(window.Tesseract) return Promise.resolve();
+  if(!tessLoading) tessLoading = new Promise((res,rej) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+    s.onload = res; s.onerror = () => { tessLoading = null; rej({code:"network", detail:"Could not load the text-recognition engine."}); };
+    document.head.appendChild(s);
+  });
+  return tessLoading;
+}
+async function ocrRead(batch, signal){
+  const texts = [];
+  let worker = null;
+  try{
+    for(let i=0;i<batch.length;i++){
+      if(signal.aborted) throw {code:"cancelled"};
+      const p = batch[i];
+      if(p.text && p.text.length > 120){ texts.push(p.text); continue; } // digital PDF: use its own text
+      if(!worker){
+        setStatus("busy","Loading the reader (first time only, about 10 MB)…");
+        await loadTesseract();
+        worker = await Tesseract.createWorker("eng", 1, {
+          logger: m => { if(m.status==="recognizing text") setStatus("busy", `Reading page ${i+1} of ${batch.length} on this device… ${Math.round(m.progress*100)}%`); }
+        });
+        await worker.setParameters({preserve_interword_spaces:"1"});
+      }
+      const img = await shrink(p.blob, 2600);
+      const { data } = await worker.recognize(img);
+      texts.push(data.text || "");
+    }
+  } finally { if(worker) worker.terminate(); }
+  if(signal.aborted) throw {code:"cancelled"};
+  const all = texts.join("\n");
+  if(!/[a-z]{3}/i.test(all)) throw {code:"empty_completion"};
+  const out = parseInvoiceText(all);
+  out.notes = ["Read on this device without AI. Check every line against the page. HS codes are keyword guesses only."];
+  if(!out.items.length) out.notes.push("No item rows were recognised. Try a straighter, sharper scan, or type the lines in.");
+  return out;
+}
+
+const pnum = s => {
+  s = String(s).replace(/[^\d.,\-]/g,""); if(!/\d/.test(s)) return null;
+  if(/^-?\d{1,3}(\.\d{3})+,\d{1,2}$/.test(s) || /^-?\d+,\d{1,2}$/.test(s)) s = s.replace(/\./g,"").replace(",","."); // 1.234,56 or 12,50
+  else s = s.replace(/,/g,"");
+  const n = parseFloat(s); return isFinite(n) ? n : null;
+};
+const UNIT_RE = /^(pcs?|pieces?|sets?|kgs?|ltrs?|l|litres?|liters?|ctns?|cartons?|box(es)?|bxs?|prs?|pairs?|m|mtrs?|meters?|doz|dozen|rolls?|each|ea|units?|nos|pkts?|packs?|bags?|btls?|bottles?|cans?|drums?|tins?|cases?)$/i;
+const UNIT_MAP = {pc:"PCS",pcs:"PCS",piece:"PCS",pieces:"PCS",each:"PCS",ea:"PCS",unit:"PCS",units:"PCS",nos:"PCS",set:"SET",sets:"SET",kg:"KG",kgs:"KG",l:"LTR",ltr:"LTR",ltrs:"LTR",litre:"LTR",litres:"LTR",liter:"LTR",liters:"LTR",ctn:"CTN",ctns:"CTN",carton:"CTN",cartons:"CTN",box:"BOX",boxes:"BOX",bx:"BOX",bxs:"BOX",pr:"PR",prs:"PR",pair:"PR",pairs:"PR",m:"M",mtr:"M",mtrs:"M",meter:"M",meters:"M",doz:"DOZ",dozen:"DOZ",roll:"ROLL",rolls:"ROLL",pkt:"PKT",pkts:"PKT",pack:"PKT",packs:"PKT",bag:"BAG",bags:"BAG",btl:"BTL",btls:"BTL",bottle:"BTL",bottles:"BTL",can:"CAN",cans:"CAN",drum:"DRUM",drums:"DRUM",tin:"TIN",tins:"TIN",case:"CASE",cases:"CASE"};
+const SKIP_RE = /\b(sub\s*-?\s*total|grand\s*total|total|amount\s*due|balance|freight|insurance|tax|vat|gst|discount|invoice\s*(no|number|date)|tel|phone|fax|e-?mail|page\s*\d|bank|account|a\/c|swift|iban|payment|signature|thank|deposit|shipping|handling)\b/i;
+const CUR_RE = /^(usd|us\$|eur|sgd|aed|inr|cny|rmb|myr|gbp|thb|lkr|mvr|aud|jpy|\$|€|£)$/i;
+
+// Common goods → HS (6-digit). Keyword guesses, always marked low confidence.
+const HS_GUESS = [
+  [/towel/i,"6302.60"],[/bed ?sheet|bed linen|pillow ?case|duvet cover/i,"6302.31"],[/cutlery set/i,"8215.20"],[/spoon|fork|ladle|cutlery/i,"8215.99"],[/knife|knives/i,"8211.91"],
+  [/led (bulb|lamp)|bulb.*led/i,"8539.52"],[/cable|wire/i,"8544.49"],[/dish ?wash|detergent|washing liquid/i,"3402.50"],[/soap/i,"3401.11"],[/shampoo/i,"3305.10"],
+  [/toilet (paper|roll|tissue)/i,"4818.10"],[/napkin|serviette/i,"4818.30"],[/garbage bag|plastic bag|trash bag/i,"3923.21"],[/t-?shirt/i,"6109.10"],[/rice/i,"1006.30"],
+  [/sugar/i,"1701.99"],[/wheat flour|\bflour\b/i,"1101.00"],[/sunflower oil/i,"1512.19"],[/mineral water|drinking water/i,"2201.10"],[/cement/i,"2523.29"],
+  [/tyre|tire/i,"4011.10"],[/lithium.*batter|batter.*lithium/i,"8507.60"],[/air ?condition/i,"8415.10"],[/refrigerator|fridge/i,"8418.10"],[/laptop|notebook computer/i,"8471.30"],
+  [/mobile phone|smartphone/i,"8517.13"],[/mattress/i,"9404.21"],[/screw/i,"7318.15"],[/a4 paper|copy paper|copier paper/i,"4802.56"],[/uht milk|milk uht/i,"0401.20"],
+  [/canned tuna|tuna.*can/i,"1604.14"],[/pasta|spaghetti|macaroni/i,"1902.19"],[/coffee beans|roasted coffee/i,"0901.21"],[/\btea\b/i,"0902.30"],[/chicken.*frozen|frozen.*chicken/i,"0207.14"]
+];
+function guessHs(desc){ for(const [re,code] of HS_GUESS) if(re.test(desc)) return code; return ""; }
+
+function parseInvoiceText(text){
+  const items = [];
+  for(const raw of text.split(/\r?\n/)){
+    const line = raw.replace(/[|¦]/g," ").replace(/\s+/g," ").trim();
+    if(line.length < 6 || SKIP_RE.test(line)) continue;
+    const toks = line.split(" ");
+    const nums = []; let unit = null, i = toks.length - 1;
+    while(i >= 0){
+      const t = toks[i].replace(/^[\$€£]+|[\$€£]+$/g,"");
+      const bare = t.replace(/[.:]$/,"");
+      if(/^[\d.,]+$/.test(t) && /\d/.test(t)){ const n = pnum(t); if(n!==null) nums.unshift(n); i--; continue; }
+      if(!unit && UNIT_RE.test(bare)){ unit = UNIT_MAP[bare.toLowerCase()] || bare.toUpperCase(); i--; continue; }
+      if(CUR_RE.test(bare) || t==="") { i--; continue; }
+      break;
+    }
+    const desc = toks.slice(0, i+1);
+    while(desc.length && /^\d{1,3}[.)]?$/.test(desc[0])) desc.shift();
+    const description = desc.join(" ").replace(/^[\-–:.\s]+|[\-–:\s]+$/g,"");
+    if(nums.length < 2 || !/[a-z]{3}/i.test(description)) continue;
+    const total = nums[nums.length-1], prev = nums.slice(0,-1);
+    let qty = null, price = null;
+    search: for(let a=0;a<prev.length;a++) for(let b=0;b<prev.length;b++){
+      if(a===b) continue;
+      if(Math.abs(prev[a]*prev[b] - total) <= Math.max(0.02, total*0.005)){
+        qty = prev[a]; price = prev[b];
+        if(!Number.isInteger(qty) && Number.isInteger(price)) [qty,price] = [price,qty];
+        break search;
+      }
+    }
+    if(qty===null){
+      if(prev.length >= 2){ qty = prev[prev.length-2]; price = prev[prev.length-1]; }
+      else { qty = prev[0]; price = qty ? +(total/qty).toFixed(4) : null; }
+    }
+    const hs = guessHs(description);
+    items.push({description, hs_code:hs, hs_confidence:"low", origin:null, quantity:qty, unit, unit_price:price, total_price:total,
+      packages:null, package_type:null, gross_weight_kg:null, net_weight_kg:null, nos:null});
+  }
+
+  const flat = text.replace(/[ \t]+/g," ");
+  const grab = (re, g=1) => { const m = flat.match(re); return m ? m[g].trim() : null; };
+  const lastNum = re => { let v = null; for(const m of flat.matchAll(re)) v = pnum(m[m.length-1]); return v; };
+  const kg = (re) => { const m = flat.match(re); if(!m) return null; let n = pnum(m[1]); if(n!==null && /lb/i.test(m[2]||"")) n = +(n*0.45359237).toFixed(2); return n; };
+  const cur = grab(/\b(USD|EUR|SGD|AED|INR|CNY|RMB|MYR|GBP|THB|LKR|AUD|JPY|MVR)\b/);
+  const header = {
+    invoice_no: grab(/invoice\s*(?:no|number|#)\.?\s*[:#\-]?\s*([A-Z0-9][A-Z0-9\-\/]{2,})/i),
+    invoice_date: grab(/(?:invoice\s*)?date\s*[:\-]?\s*(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}|\d{1,2}[\s\-]+[A-Za-z]{3,9}[\s\-,]+\d{4}|[A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4})/i),
+    currency: cur ? cur.toUpperCase().replace("RMB","CNY") : (/\$/.test(flat) ? "USD" : null),
+    invoice_total: lastNum(/(?:grand\s*total|total\s*amount|invoice\s*total|amount\s*due|total\s*(?:usd|value)?)\s*[:\-]?\s*(?:[A-Z]{3}|\$)?\s*([\d.,]+\d)/gi),
+    incoterm: grab(/\b(EXW|FCA|FAS|FOB|CFR|C&F|CIF|CPT|CIP|DAP|DPU|DDP)\b/),
+    bl_awb_no: grab(/(?:B\/L|BL|bill of lading|AWB|air ?waybill)\s*(?:no|number|#)?\.?\s*[:#\-]?\s*([A-Z0-9][A-Z0-9\-]{5,})/i),
+    vessel_flight: grab(/(?:vessel|flight)\s*(?:name|no)?\.?\s*[:\-]\s*([^\n]{3,40}?)(?:\s{2,}|\s+voy|\n|$)/i),
+    port_of_loading: grab(/port of loading\s*[:\-]?\s*([A-Za-z ,]{3,40})/i),
+    total_packages: pnum(grab(/(?:total\s*)?(?:no\.?\s*of\s*)?(?:packages|pkgs|cartons|ctns)\s*[:\-]?\s*(\d{1,5})/i) ?? ""),
+    gross_weight_kg: kg(/gross\s*(?:weight|wt|mass)\.?\s*(?:\(kgs?\))?\s*[:\-]?\s*([\d.,]+)\s*(kgs?|lbs?)?/i),
+    net_weight_kg: kg(/net\s*(?:weight|wt|mass)\.?\s*(?:\(kgs?\))?\s*[:\-]?\s*([\d.,]+)\s*(kgs?|lbs?)?/i),
+    freight: pnum(grab(/freight\s*(?:charges?)?\s*[:\-]?\s*(?:[A-Z]{3}|\$)?\s*([\d.,]+\d)/i) ?? ""),
+    insurance: pnum(grab(/insurance\s*[:\-]?\s*(?:[A-Z]{3}|\$)?\s*([\d.,]+\d)/i) ?? ""),
+    discount: pnum(grab(/discount\s*[:\-]?\s*(?:[A-Z]{3}|\$)?\s*-?([\d.,]+\d)/i) ?? "")
+  };
+  if(/\b(B\/L|bill of lading|vessel)\b/i.test(flat)) header.transport_mode = "Sea";
+  else if(/\b(AWB|air ?waybill|flight)\b/i.test(flat)) header.transport_mode = "Air";
+  return {header, items};
+}
+
 /* ---------- standalone mode: Anthropic API direct from the browser ---------- */
 const KEY_STORE = "declaration-desk-key";
 function apiKey(){ return ($("#apiKey").value || "").trim(); }
 try{ $("#apiKey").value = localStorage.getItem(KEY_STORE) || ""; $("#modelIn").value = localStorage.getItem(KEY_STORE+"-model") || "claude-sonnet-5"; }catch(e){}
-function keyLabel(){ $("#keyState").textContent = apiKey() ? "· saved" : "· not set"; }
+function keyLabel(){ $("#keyState").textContent = apiKey() ? "· saved, using Claude" : "· not set, using free reading"; }
 $("#apiKey").addEventListener("input", () => { try{ localStorage.setItem(KEY_STORE, apiKey()); }catch(e){} keyLabel(); });
 $("#modelIn").addEventListener("input", e => { try{ localStorage.setItem(KEY_STORE+"-model", e.target.value.trim()); }catch(err){} });
 keyLabel();
@@ -759,7 +891,7 @@ function renderAll(){
 }
 renderAll(); renderPages();
 
-const standalone = () => { $("#keybox").hidden = false; if(!apiKey()) $("#keybox").open = true; };
+const standalone = () => { $("#keybox").hidden = false; };
 if(window.claude?.use){
   claude.use("sample").then(s => { sample = s; if(!s) standalone(); });
   claude.use("downloads").then(d => { downloads = d; });
