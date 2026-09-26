@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Declaration Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#EEF2F1; --surface:#FFFFFF; --surface-2:#F5F8F7; --ink:#10262E; --muted:#56676D; --line:#D3DDDC; --line-strong:#B7C6C5;
+  --accent:#0B6E6B; --accent-soft:#DDEFED; --accent-ink:#FFFFFF;
+  --ok:#1D7A46; --ok-bg:#E3F3E9; --warn:#946000; --warn-bg:#FBF0D9; --err:#B3261E; --err-bg:#FBE5E3;
+  --display:"Archivo","Arial Narrow",system-ui,sans-serif; --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0B161A; --surface:#112127; --surface-2:#0E1C21; --ink:#E2ECEB; --muted:#93A7AA; --line:#23383E; --line-strong:#33505A;
+    --accent:#45B8B0; --accent-soft:#143532; --accent-ink:#04201E;
+    --ok:#5CC98E; --ok-bg:#12301F; --warn:#E3AE45; --warn-bg:#33270D; --err:#F2786E; --err-bg:#3A1714;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0B161A; --surface:#112127; --surface-2:#0E1C21; --ink:#E2ECEB; --muted:#93A7AA; --line:#23383E; --line-strong:#33505A;
+  --accent:#45B8B0; --accent-soft:#143532; --accent-ink:#04201E;
+  --ok:#5CC98E; --ok-bg:#12301F; --warn:#E3AE45; --warn-bg:#33270D; --err:#F2786E; --err-bg:#3A1714;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.45;padding-inline:16px;padding-block:0 48px}
+.wrap{max-width:1360px;margin:0 auto}
+header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-block:22px 18px;border-bottom:2px solid var(--ink);margin-bottom:20px}
+.brand h1{font-family:var(--display);font-stretch:78%;font-weight:800;font-size:32px;letter-spacing:-.01em;margin:0;line-height:1;text-transform:uppercase}
+.brand p{margin:6px 0 0;color:var(--muted);max-width:60ch}
+.formref{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:right}
+.formref b{color:var(--ink);font-weight:500}
+.grid{display:grid;grid-template-columns:minmax(300px,420px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px}
+.panel-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)}
+.panel-h h2{font-family:var(--display);font-stretch:85%;font-weight:700;font-size:15px;letter-spacing:.06em;text-transform:uppercase;margin:0}
+.panel-b{padding:16px}
+.stack{display:flex;flex-direction:column;gap:20px}
+.side{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px)}
+@media (max-width:900px){.side{position:static}}
+.drop{border:1.5px dashed var(--line-strong);border-radius:6px;padding:20px 16px;text-align:center;background:var(--surface-2);cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop strong{display:block;font-weight:600;margin-bottom:4px}
+.drop span{color:var(--muted);font-size:13px}
+.drop input{display:none}
+.files{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.thumb{position:relative;width:64px;height:84px;border:1px solid var(--line);border-radius:4px;overflow:hidden;background:var(--surface-2);cursor:pointer;padding:0}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb.active{outline:2px solid var(--accent);outline-offset:1px}
+.thumb .pg{position:absolute;left:0;right:0;bottom:0;font-family:var(--mono);font-size:10px;background:rgba(16,38,46,.78);color:#fff;padding:1px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.thumb .x{position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:3px;border:0;background:rgba(16,38,46,.8);color:#fff;font-size:12px;line-height:18px;cursor:pointer;padding:0}
+.viewer{margin-top:14px;border:1px solid var(--line);border-radius:4px;background:var(--surface-2);max-height:62vh;overflow:auto}
+.viewer img{display:block;width:100%;max-width:none}
+.viewer.zoom img{width:200%}
+.viewer .empty{padding:28px 16px;color:var(--muted);text-align:center;font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{font:inherit;cursor:pointer}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);border-radius:5px;padding:8px 12px;font-weight:500;font-size:13px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.small{padding:5px 9px;font-size:12px}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.btn.ghost:hover{color:var(--ink)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.status{margin-top:12px;font-size:13px;padding:10px 12px;border-radius:5px;background:var(--surface-2);border:1px solid var(--line);display:flex;gap:10px;align-items:flex-start}
+.status.err{background:var(--err-bg);border-color:transparent;color:var(--err)}
+.status.ok{background:var(--ok-bg);border-color:transparent;color:var(--ok)}
+.status .spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--line-strong);border-top-color:var(--accent);animation:spin 0.8s linear infinite;flex:none;margin-top:2px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.status .spin{animation:none}}
+.hint{font-size:12px;color:var(--muted);margin-top:8px}
+.banner{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--warn-bg);color:var(--warn);border-radius:6px;padding:10px 14px;font-size:13px}
+.banner b{font-weight:600}
+fieldset{border:0;margin:0;padding:0}
+.groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px 24px}
+.group h3{font-family:var(--display);font-stretch:85%;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.f{display:flex;flex-direction:column;gap:3px;min-width:0}
+.f.wide{grid-column:1/-1}
+.f label{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.box{font-family:var(--mono);font-size:10px;color:var(--accent);border:1px solid currentColor;border-radius:3px;padding:0 4px;line-height:15px}
+input.in,select.in{width:100%;font:inherit;font-size:13px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:6px 8px;min-width:0}
+input.in:focus{border-color:var(--accent);outline:none;background:var(--surface)}
+input.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.tablewrap{overflow-x:auto}
+table.items{border-collapse:collapse;width:100%;min-width:1180px;font-size:13px}
+table.items th{font-family:var(--display);font-stretch:85%;font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px 6px;border-bottom:1px solid var(--line-strong);white-space:nowrap;vertical-align:bottom;background:var(--surface)}
+table.items th .box{display:inline-block;margin-bottom:3px}
+table.items th.r{text-align:right}
+table.items td{padding:4px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+table.items td.n{font-family:var(--mono);color:var(--muted);font-size:12px;padding-top:10px;text-align:center;width:34px}
+table.items td input.in{background:transparent;border-color:transparent;padding:5px 6px}
+table.items td input.in:hover{border-color:var(--line)}
+table.items td input.in:focus{border-color:var(--accent);background:var(--surface)}
+table.items tr.mismatch td input[data-k="total"]{color:var(--err);border-color:var(--err)}
+table.items tfoot td{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:500;border-bottom:0;padding:10px 10px;text-align:right}
+table.items tfoot td.l{text-align:left;font-family:var(--display);font-stretch:85%;text-transform:uppercase;letter-spacing:.06em;font-size:11px;color:var(--muted)}
+.hsc{display:flex;gap:4px;align-items:center}
+.conf{width:8px;height:8px;border-radius:50%;flex:none;background:var(--line-strong)}
+.conf.high{background:var(--ok)}.conf.medium{background:var(--warn)}.conf.low{background:var(--err)}
+.del{border:0;background:transparent;color:var(--muted);font-size:16px;padding:4px 6px;border-radius:4px}
+.del:hover{color:var(--err);background:var(--err-bg)}
+.checks{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.checks li{display:flex;gap:10px;align-items:flex-start;font-size:13px;padding:7px 10px;border-radius:5px}
+.checks li::before{content:"";width:8px;height:8px;border-radius:50%;margin-top:6px;flex:none}
+.checks li.ok{background:var(--ok-bg);color:var(--ok)}.checks li.ok::before{background:var(--ok)}
+.checks li.warn{background:var(--warn-bg);color:var(--warn)}.checks li.warn::before{background:var(--warn)}
+.checks li.err{background:var(--err-bg);color:var(--err)}.checks li.err::before{background:var(--err)}
+.values{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.v{background:var(--surface);padding:10px 12px}
+.v .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-family:var(--display);font-stretch:85%;font-weight:600}
+.v .val{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:16px;font-weight:500;margin-top:2px}
+.v.cif{background:var(--accent-soft)}
+.notes{margin:10px 0 0;padding-left:18px;color:var(--muted);font-size:13px}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+@media (max-width:700px){.two{grid-template-columns:1fr}}
+.rate{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;font-size:13px}
+.rate input{width:110px}
+[hidden]{display:none!important}
+img{max-width:100%}
+body{margin:0}
+.keybox{margin-top:12px;border:1px solid var(--line);border-radius:5px;padding:10px 12px;background:var(--surface-2)}
+.keybox summary{cursor:pointer;font-weight:500;font-size:13px}
+.keybox .f{margin-top:8px}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:5px;font-size:13px;z-index:10;max-width:calc(100% - 32px)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Declaration Desk</h1>
+      <p>Drop scanned invoices and packing lists. Claude reads every line, suggests HS codes and fills the SAD fields for you to check and export.</p>
+    </div>
+    <div class="formref">Form <b>SAD · ASYCUDA</b><br>Import declaration worksheet</div>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT: documents -->
+    <aside class="side stack">
+      <section class="panel">
+        <div class="panel-h"><h2>Documents</h2><span class="hint" id="pageCount" style="margin:0">No pages yet</span></div>
+        <div class="panel-b">
+          <label class="drop" id="drop" for="fileIn">
+            <input type="file" id="fileIn" multiple accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.pdf">
+            <strong>Drop invoice, packing list or B/L</strong>
+            <span>Scanned PDF, phone photo, JPG or PNG. Several files at once is fine.</span>
+          </label>
+          <details class="keybox" id="keybox" hidden>
+            <summary>Anthropic API key <span class="hint" id="keyState" style="margin:0"></span></summary>
+            <div class="f">
+              <label for="apiKey">Key (starts with sk-ant-). Stored only in this browser.</label>
+              <input class="in" id="apiKey" type="password" autocomplete="off" placeholder="sk-ant-…">
+            </div>
+            <div class="f">
+              <label for="modelIn">Model</label>
+              <input class="in" id="modelIn" value="claude-sonnet-5">
+            </div>
+            <div class="hint">Get a key at console.anthropic.com. Each read is billed to that key. Don't use this on a shared computer.</div>
+          </details>
+          <div class="files" id="files"></div>
+          <div class="row" style="margin-top:14px">
+            <button class="btn primary" id="readBtn" disabled>Read documents</button>
+            <button class="btn" id="stopBtn" hidden>Stop</button>
+            <label class="hint" style="margin:0;display:flex;gap:6px;align-items:center"><input type="checkbox" id="replaceChk" checked> Replace current lines</label>
+          </div>
+          <div id="status" class="status" hidden></div>
+          <div class="viewer" id="viewer"><div class="empty">Tap a page to view it here while you check the lines.</div></div>
+          <div class="row" style="margin-top:8px;justify-content:flex-end"><button class="btn small ghost" id="zoomBtn">Zoom 200%</button></div>
+        </div>
+      </section>
+    </aside>
+
+    <!-- RIGHT: declaration -->
+    <main class="stack">
+      <div class="banner" id="exampleBanner" hidden>
+        <span><b>Example invoice.</b> These figures are sample data. Read your own documents to replace them.</span>
+        <button class="btn small" id="clearBtn">Start blank</button>
+      </div>
+
+      <section class="panel">
+        <div class="panel-h"><h2>Declaration header</h2><span class="hint" style="margin:0">Box numbers follow the SAD form</span></div>
+        <div class="panel-b"><div class="groups" id="headerGroups"></div></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-h">
+          <h2>Items <span id="itemCount" style="color:var(--muted);font-weight:500"></span></h2>
+          <div class="row">
+            <button class="btn small" id="addRow">Add line</button>
+          </div>
+        </div>
+        <div class="tablewrap">
+          <table class="items">
+            <thead><tr>
+              <th>#</th>
+              <th style="min-width:260px"><span class="box">31</span><br>Description of goods</th>
+              <th style="min-width:118px"><span class="box">33</span><br>HS code</th>
+              <th><span class="box">34</span><br>Origin</th>
+              <th class="r"><span class="box">41</span><br>Qty</th>
+              <th>Unit</th>
+              <th class="r">Unit price</th>
+              <th class="r"><span class="box">42</span><br>Total price</th>
+              <th class="r"><span class="box">31</span><br>Pkgs</th>
+              <th>Pkg type</th>
+              <th class="r"><span class="box">35</span><br>Gross kg</th>
+              <th class="r"><span class="box">38</span><br>Net kg</th>
+              <th class="r">Nos</th>
+              <th></th>
+            </tr></thead>
+            <tbody id="rows"></tbody>
+            <tfoot><tr>
+              <td class="l" colspan="4">Totals</td>
+              <td id="tQty"></td><td></td><td></td>
+              <td id="tTotal"></td><td id="tPkgs"></td><td></td>
+              <td id="tGw"></td><td id="tNw"></td><td id="tNos"></td><td></td>
+            </tr></tfoot>
+          </table>
+        </div>
+        <div class="panel-b" style="padding-top:8px">
+          <div class="hint" style="margin:0">HS dot colour shows Claude's confidence: <span class="conf high" style="display:inline-block"></span> high <span class="conf medium" style="display:inline-block;margin-left:6px"></span> medium <span class="conf low" style="display:inline-block;margin-left:6px"></span> low. Confirm every code against the Maldives Customs tariff before lodging.</div>
+          <ul class="notes" id="notes" hidden></ul>
+        </div>
+      </section>
+
+      <div class="two">
+        <section class="panel">
+          <div class="panel-h"><h2>Checks</h2></div>
+          <div class="panel-b"><ul class="checks" id="checks"></ul></div>
+        </section>
+        <section class="panel">
+          <div class="panel-h"><h2>Value &amp; export</h2></div>
+          <div class="panel-b">
+            <div class="rate">
+              <span class="box">23</span><label for="rateIn">Exchange rate to MVR</label>
+              <input class="in num" id="rateIn" inputmode="decimal">
+              <span class="hint" style="margin:0">Use the Customs rate for the arrival date.</span>
+            </div>
+            <div class="values" id="values"></div>
+            <div class="row" style="margin-top:14px">
+              <button class="btn primary" id="xlsxBtn">Download Excel</button>
+              <button class="btn" id="csvBtn">Download CSV</button>
+              <button class="btn" id="copyBtn">Copy lines</button>
+            </div>
+            <div class="hint">Excel has a Header sheet and an Items sheet with CIF allocated by value, ready for your SAD generator or ASYCUDA entry. Copy lines puts tab-separated rows on the clipboard for pasting into a spreadsheet.</div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+(function(){
+"use strict";
+const $ = s => document.querySelector(s);
+const STORE = "declaration-desk-v1";
+
+const HEADER = [
+  ["Parties", [
+    ["supplier_name","Exporter / supplier","2",1],["supplier_address","Exporter address","2",1],
+    ["consignee_name","Consignee / importer","8",1],["importer_tin","Importer TIN","8"],["supplier_country","Supplier country"]
+  ]],
+  ["Invoice", [
+    ["invoice_no","Invoice no.","44"],["invoice_date","Invoice date"],
+    ["currency","Currency","22"],["invoice_total","Total invoiced","22","num"],
+    ["incoterm","Delivery terms","20"],["country_of_origin","Main origin","34"]
+  ]],
+  ["Transport", [
+    ["transport_mode","Mode of transport","25"],["vessel_flight","Vessel / flight","18"],
+    ["bl_awb_no","B/L or AWB no.","44"],["port_of_loading","Place of loading","27"],
+    ["country_of_export","Country of export","15"],["marks_numbers","Marks & numbers","31"]
+  ]],
+  ["Packages & charges", [
+    ["total_packages","Total packages","6","num"],["package_type","Package kind","31"],
+    ["gross_weight_kg","Gross mass kg","35","num"],["net_weight_kg","Net mass kg","38","num"],
+    ["freight","Freight",null,"num"],["insurance","Insurance",null,"num"],
+    ["other_charges","Other charges",null,"num"],["discount","Discount",null,"num"]
+  ]]
+];
+const HKEYS = HEADER.flatMap(g => g[1].map(f => f[0]));
+const HNUM = new Set(HEADER.flatMap(g => g[1].filter(f => f[3]==="num").map(f => f[0])));
+const ICOLS = [
+  ["description","text"],["hs_code","text"],["origin","text"],["quantity","num"],["unit","text"],
+  ["unit_price","num"],["total_price","num"],["packages","num"],["package_type","text"],
+  ["gross_weight_kg","num"],["net_weight_kg","num"],["nos","num"]
+];
+const INUM = new Set(ICOLS.filter(c => c[1]==="num").map(c => c[0]));
+
+const EXAMPLE = {
+  example:true, rate:15.42, notes:[],
+  header:{supplier_name:"Harbourline Trading Pte Ltd",supplier_address:"21 Tuas Avenue 8, Singapore 639229",consignee_name:"Example Island Resort Pvt Ltd",importer_tin:"",supplier_country:"SG",invoice_no:"HLT-24-0917",invoice_date:"2026-09-14",currency:"USD",invoice_total:6385.00,incoterm:"FOB",country_of_origin:"",transport_mode:"Sea",vessel_flight:"",bl_awb_no:"",port_of_loading:"Singapore",country_of_export:"SG",marks_numbers:"EIR/MALE 1-38",total_packages:38,package_type:"CTN",gross_weight_kg:612.4,net_weight_kg:548.0,freight:420.00,insurance:32.00,other_charges:null,discount:null},
+  items:[
+    {description:"Stainless steel cutlery set, 24 pc, mirror finish",hs_code:"8215.20",hs_confidence:"high",origin:"CN",quantity:120,unit:"SET",unit_price:14.50,total_price:1740.00,packages:10,package_type:"CTN",gross_weight_kg:186.0,net_weight_kg:168.0,nos:2880},
+    {description:"Bath towel, 100% cotton terry, 70x140 cm, white",hs_code:"6302.60",hs_confidence:"high",origin:"PK",quantity:600,unit:"PCS",unit_price:3.85,total_price:2310.00,packages:12,package_type:"CTN",gross_weight_kg:258.0,net_weight_kg:240.0,nos:null},
+    {description:"LED bulb E27 9W 230V warm white",hs_code:"8539.52",hs_confidence:"medium",origin:"CN",quantity:800,unit:"PCS",unit_price:0.95,total_price:760.00,packages:8,package_type:"CTN",gross_weight_kg:64.0,net_weight_kg:48.0,nos:null},
+    {description:"Dishwashing liquid, lemon, 5 L jerrican",hs_code:"3402.50",hs_confidence:"medium",origin:"MY",quantity:65,unit:"PCS",unit_price:25.00,total_price:1625.00,packages:8,package_type:"CTN",gross_weight_kg:104.4,net_weight_kg:92.0,nos:null}
+  ]
+};
+
+let state = load() || structuredClone(EXAMPLE);
+let pages = []; // {id,name,blob,url,text}
+let activePage = null;
+let sample = null, downloads = null, ctl = null;
+
+function load(){ try{ const s = localStorage.getItem(STORE); return s ? JSON.parse(s) : null; }catch(e){ return null; } }
+function save(){ try{ localStorage.setItem(STORE, JSON.stringify(state)); }catch(e){} }
+
+const num = v => { if(v===null||v===undefined||v==="") return null; const n = typeof v==="number" ? v : parseFloat(String(v).replace(/[^0-9.\-]/g,"")); return isFinite(n) ? n : null; };
+const fmt = (n,d=2) => n===null||n===undefined||!isFinite(n) ? "–" : n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmtIn = (n) => n===null||n===undefined ? "" : String(n);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true,2600); }
+
+/* ---------- header form ---------- */
+function renderHeader(){
+  $("#headerGroups").innerHTML = HEADER.map(([title,fields]) => `
+    <fieldset class="group"><h3>${title}</h3><div class="fields">
+      ${fields.map(([k,label,box,flag]) => `
+        <div class="f${flag===1?" wide":""}">
+          <label for="h_${k}">${box?`<span class="box">${box}</span>`:""}${label}</label>
+          <input class="in${HNUM.has(k)?" num":""}" id="h_${k}" data-h="${k}" ${HNUM.has(k)?'inputmode="decimal"':""} value="${esc(HNUM.has(k)?fmtIn(state.header[k]):state.header[k])}">
+        </div>`).join("")}
+    </div></fieldset>`).join("");
+}
+$("#headerGroups").addEventListener("input", e => {
+  const k = e.target.dataset.h; if(!k) return;
+  state.header[k] = HNUM.has(k) ? num(e.target.value) : e.target.value;
+  markEdited(); refresh();
+});
+
+/* ---------- items table ---------- */
+function renderItems(){
+  $("#rows").innerHTML = state.items.map((it,i) => `
+    <tr data-i="${i}">
+      <td class="n">${i+1}</td>
+      ${ICOLS.map(([k,t]) => {
+        const v = INUM.has(k) ? fmtIn(it[k]) : (it[k] ?? "");
+        if(k==="hs_code") return `<td><div class="hsc"><span class="conf ${esc(it.hs_confidence||"")}" title="Confidence: ${esc(it.hs_confidence||"not set")}"></span><input class="in" id="i${i}_${k}" data-k="${k}" value="${esc(v)}" style="font-family:var(--mono)"></div></td>`;
+        const w = {origin:"54px",unit:"62px",package_type:"62px"}[k];
+        return `<td><input class="in${t==="num"?" num":""}" id="i${i}_${k}" data-k="${k}" ${t==="num"?'inputmode="decimal"':""} value="${esc(v)}" ${w?`style="width:${w}"`:""}></td>`;
+      }).join("")}
+      <td><button class="del" data-del="${i}" aria-label="Delete line ${i+1}">×</button></td>
+    </tr>`).join("");
+  $("#itemCount").textContent = state.items.length ? `· ${state.items.length} line${state.items.length>1?"s":""}` : "";
+}
+$("#rows").addEventListener("input", e => {
+  const tr = e.target.closest("tr"); const k = e.target.dataset.k; if(!tr||!k) return;
+  const it = state.items[+tr.dataset.i];
+  it[k] = INUM.has(k) ? num(e.target.value) : e.target.value;
+  if(k==="hs_code"){ it.hs_confidence = "user"; tr.querySelector(".conf").className = "conf"; }
+  markEdited(); refresh();
+});
+$("#rows").addEventListener("click", e => {
+  const d = e.target.closest("[data-del]"); if(!d) return;
+  state.items.splice(+d.dataset.del,1); markEdited(); renderItems(); refresh();
+});
+$("#addRow").onclick = () => {
+  state.items.push(Object.fromEntries(ICOLS.map(([k]) => [k,null])));
+  markEdited(); renderItems(); refresh();
+  document.getElementById(`i${state.items.length-1}_description`)?.focus();
+};
+
+/* ---------- totals, checks, values ---------- */
+const sum = k => state.items.reduce((a,it) => a + (num(it[k])||0), 0);
+const near = (a,b,tol) => Math.abs(a-b) <= Math.max(tol, Math.abs(b)*0.002);
+
+function refresh(){
+  const T = {qty:sum("quantity"),total:sum("total_price"),pkgs:sum("packages"),gw:sum("gross_weight_kg"),nw:sum("net_weight_kg"),nos:sum("nos")};
+  $("#tQty").textContent = fmt(T.qty,0); $("#tTotal").textContent = fmt(T.total);
+  $("#tPkgs").textContent = fmt(T.pkgs,0); $("#tGw").textContent = fmt(T.gw,1); $("#tNw").textContent = fmt(T.nw,1); $("#tNos").textContent = T.nos?fmt(T.nos,0):"";
+
+  const checks = []; const H = state.header;
+  const bad = [];
+  state.items.forEach((it,i) => {
+    const q=num(it.quantity), p=num(it.unit_price), t=num(it.total_price);
+    const tr = document.querySelector(`#rows tr[data-i="${i}"]`);
+    const mis = q!==null && p!==null && t!==null && !near(q*p,t,0.05);
+    if(tr) tr.classList.toggle("mismatch", mis);
+    if(mis) bad.push(i+1);
+  });
+  if(!state.items.length) checks.push(["err","No item lines yet."]);
+  else if(bad.length) checks.push(["err",`Qty × unit price does not match the line total on line${bad.length>1?"s":""} ${bad.join(", ")}.`]);
+  else checks.push(["ok","Every line total equals qty × unit price."]);
+
+  const inv = num(H.invoice_total);
+  if(inv!==null && state.items.length){
+    const net = T.total - (num(H.discount)||0);
+    const withCh = net + (num(H.freight)||0) + (num(H.insurance)||0) + (num(H.other_charges)||0);
+    if(near(T.total,inv,0.05)) checks.push(["ok",`Lines add up to the invoice total (${fmt(inv)} ${H.currency||""}).`]);
+    else if(near(net,inv,0.05)) checks.push(["ok","Lines less discount match the invoice total."]);
+    else if(near(withCh,inv,0.05)) checks.push(["warn","Invoice total includes freight/insurance. Make sure charges are not counted twice."]);
+    else checks.push(["err",`Lines total ${fmt(T.total)} but invoice says ${fmt(inv)} (difference ${fmt(T.total-inv)}).`]);
+  } else if(state.items.length) checks.push(["warn","Invoice total is empty, so the line sum cannot be checked."]);
+
+  const gw = num(H.gross_weight_kg);
+  if(gw!==null && T.gw>0) checks.push(near(T.gw,gw,0.5) ? ["ok","Line gross weights match box 35."] : ["warn",`Line gross weights total ${fmt(T.gw,1)} kg, header says ${fmt(gw,1)} kg.`]);
+  else if(gw===null) checks.push(["warn","Gross mass (box 35) is empty."]);
+  const tp = num(H.total_packages);
+  if(tp!==null && T.pkgs>0 && T.pkgs!==tp) checks.push(["warn",`Line packages total ${fmt(T.pkgs,0)}, header says ${fmt(tp,0)}.`]);
+
+  const noHs = state.items.map((it,i)=>[it,i]).filter(([it]) => !String(it.hs_code||"").replace(/\D/g,"")).map(([,i])=>i+1);
+  const lowHs = state.items.map((it,i)=>[it,i]).filter(([it]) => it.hs_confidence==="low").map(([,i])=>i+1);
+  if(noHs.length) checks.push(["err",`No HS code on line${noHs.length>1?"s":""} ${noHs.join(", ")}.`]);
+  if(lowHs.length) checks.push(["warn",`Low-confidence HS code on line${lowHs.length>1?"s":""} ${lowHs.join(", ")}. Check the tariff.`]);
+  const noOrig = state.items.filter(it => !it.origin && !H.country_of_origin).length;
+  if(noOrig) checks.push(["warn",`${noOrig} line${noOrig>1?"s have":" has"} no country of origin (box 34).`]);
+  if(!H.currency) checks.push(["warn","Currency (box 22) is empty."]);
+  if(!H.bl_awb_no) checks.push(["warn","B/L or AWB number is empty. Add it from the transport document."]);
+  $("#checks").innerHTML = checks.map(([l,t]) => `<li class="${l}">${esc(t)}</li>`).join("");
+
+  // values
+  const v = values();
+  $("#values").innerHTML = [
+    ["Goods value",fmt(v.goods),H.currency],["Freight",fmt(v.freight),H.currency],["Insurance",fmt(v.insurance),H.currency],
+    ["CIF",fmt(v.cif),H.currency,"cif"],["CIF in MVR",state.rate?fmt(v.cifMvr):"Set rate","MVR","cif"]
+  ].map(([k,val,c,cls]) => `<div class="v ${cls||""}"><div class="k">${k}${c?` · ${esc(c)}`:""}</div><div class="val">${val}</div></div>`).join("");
+  save();
+}
+function values(){
+  const H = state.header;
+  const goods = sum("total_price") - (num(H.discount)||0);
+  const freight = num(H.freight)||0, insurance = num(H.insurance)||0, other = num(H.other_charges)||0;
+  const cif = goods + freight + insurance + other;
+  return {goods,freight,insurance,other,cif,cifMvr: cif*(num(state.rate)||0)};
+}
+function markEdited(){ if(state.example){ state.example=false; $("#exampleBanner").hidden=true; } }
+
+$("#rateIn").addEventListener("input", e => { state.rate = num(e.target.value); refresh(); });
+$("#clearBtn").onclick = () => {
+  state = {example:false,rate:state.rate,notes:[],header:Object.fromEntries(HKEYS.map(k=>[k,null])),items:[]};
+  renderAll(); toast("Cleared. Drop your documents to begin.");
+};
+
+/* ---------- documents ---------- */
+if(window.pdfjsLib){ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; }
+const drop = $("#drop");
+["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => addFiles(e.dataTransfer.files));
+$("#fileIn").addEventListener("change", e => { addFiles(e.target.files); e.target.value=""; });
+
+let pid = 0;
+async function addFiles(list){
+  const files = [...list]; if(!files.length) return;
+  setStatus("busy","Preparing pages…");
+  for(const f of files){
+    try{
+      if(f.type==="application/pdf" || /\.pdf$/i.test(f.name)){
+        if(!window.pdfjsLib) throw new Error("PDF reader did not load");
+        const doc = await pdfjsLib.getDocument({data: await f.arrayBuffer()}).promise;
+        const n = Math.min(doc.numPages, 30);
+        for(let p=1;p<=n;p++){
+          const page = await doc.getPage(p);
+          const base = page.getViewport({scale:1});
+          const scale = 2000 / Math.max(base.width, base.height);
+          const vp = page.getViewport({scale});
+          const c = document.createElement("canvas"); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+          const cx = c.getContext("2d"); cx.fillStyle="#fff"; cx.fillRect(0,0,c.width,c.height);
+          await page.render({canvasContext:cx, viewport:vp}).promise;
+          const blob = await new Promise(r => c.toBlob(r,"image/jpeg",0.9));
+          let text = "";
+          try{ const tc = await page.getTextContent(); text = tc.items.map(t => t.str + (t.hasEOL?"\n":" ")).join("").replace(/[ \t]+/g," ").trim(); }catch(e){}
+          pages.push({id:++pid,name:`${f.name} · p${p}`,blob,url:URL.createObjectURL(blob),text});
+        }
+        if(doc.numPages>30) toast(`Only the first 30 pages of ${f.name} were added.`);
+      } else if(/^image\/(jpeg|png|webp|gif)$/.test(f.type)){
+        pages.push({id:++pid,name:f.name,blob:f,url:URL.createObjectURL(f),text:""});
+      } else {
+        toast(`${f.name}: use PDF, JPG, PNG or WebP. HEIC photos need converting first.`);
+      }
+    }catch(err){ toast(`Could not open ${f.name}: ${err.message||err}`); }
+  }
+  renderPages(); setStatus(null);
+  if(pages.length && !activePage) showPage(pages[0].id);
+}
+function renderPages(){
+  $("#files").innerHTML = pages.map(p => `
+    <div class="thumb${p.id===activePage?" active":""}" data-p="${p.id}" role="button" tabindex="0" aria-label="View ${esc(p.name)}">
+      <img src="${p.url}" alt=""><span class="pg">${esc(p.name)}</span>
+      <button class="x" data-x="${p.id}" aria-label="Remove ${esc(p.name)}">×</button>
+    </div>`).join("");
+  $("#pageCount").textContent = pages.length ? `${pages.length} page${pages.length>1?"s":""}` : "No pages yet";
+  $("#readBtn").disabled = !pages.length || !!ctl;
+}
+$("#files").addEventListener("click", e => {
+  const x = e.target.closest("[data-x]");
+  if(x){ const id=+x.dataset.x; const p=pages.find(q=>q.id===id); if(p) URL.revokeObjectURL(p.url); pages=pages.filter(q=>q.id!==id); if(activePage===id){ activePage=null; if(pages[0]) showPage(pages[0].id); else $("#viewer").innerHTML='<div class="empty">Tap a page to view it here while you check the lines.</div>'; } renderPages(); return; }
+  const t = e.target.closest("[data-p]"); if(t) showPage(+t.dataset.p);
+});
+$("#files").addEventListener("keydown", e => { if((e.key==="Enter"||e.key===" ") && e.target.dataset.p){ e.preventDefault(); showPage(+e.target.dataset.p); } });
+function showPage(id){
+  const p = pages.find(q=>q.id===id); if(!p) return; activePage=id;
+  $("#viewer").innerHTML = `<img src="${p.url}" alt="${esc(p.name)}">`; renderPages();
+}
+$("#zoomBtn").onclick = () => { const v=$("#viewer"); v.classList.toggle("zoom"); $("#zoomBtn").textContent = v.classList.contains("zoom") ? "Fit width" : "Zoom 200%"; };
+
+function setStatus(kind,msg){
+  const s=$("#status");
+  if(!kind){ s.hidden=true; return; }
+  s.hidden=false; s.className = "status" + (kind==="err"?" err":kind==="ok"?" ok":"");
+  s.innerHTML = (kind==="busy"?'<span class="spin"></span>':"") + `<span>${esc(msg)}</span>`;
+}
+
+/* ---------- reading with Claude ---------- */
+const SHAPE = `{"header":{"supplier_name":null,"supplier_address":null,"supplier_country":null,"consignee_name":null,"importer_tin":null,"invoice_no":null,"invoice_date":null,"currency":null,"invoice_total":null,"incoterm":null,"country_of_origin":null,"transport_mode":null,"vessel_flight":null,"bl_awb_no":null,"port_of_loading":null,"country_of_export":null,"marks_numbers":null,"total_packages":null,"package_type":null,"gross_weight_kg":null,"net_weight_kg":null,"freight":null,"insurance":null,"other_charges":null,"discount":null},
+"items":[{"description":"","hs_code":"","hs_confidence":"high|medium|low","origin":null,"quantity":0,"unit":"PCS","unit_price":0,"total_price":0,"packages":null,"package_type":null,"gross_weight_kg":null,"net_weight_kg":null,"nos":null}],
+"notes":[]}`;
+
+function buildPrompt(batch, idx, total){
+  const list = batch.map((p,i) => `${i+1}. ${p.name}`).join("\n");
+  let text = batch.filter(p=>p.text && p.text.length>40).map(p => `--- Text layer of ${p.name} ---\n${p.text.slice(0,12000)}`).join("\n\n");
+  if(text.length>40000) text = text.slice(0,40000);
+  return `You are preparing a Maldives Customs import declaration (ASYCUDA SAD) from trade documents: commercial invoice, and possibly a packing list, proforma, delivery note, bill of lading or airway bill.
+${batch.length} page image(s) are attached in this order:
+${list}
+${total>1?`This is batch ${idx+1} of ${total}; other pages are read separately. Extract only what is on these pages.\n`:""}${text?`\nSome pages also have an embedded text layer. Use it to confirm figures, but trust the image where they disagree.\n${text}\n`:""}
+Read every invoice line item and the document header. Rules:
+- Never invent values. Use null when a value is not on the documents or is illegible, and mention illegible parts in notes.
+- Numbers must be plain JSON numbers: no currency symbols, no thousands separators, keep the decimals printed.
+- Weights in kilograms. If the document uses lb, convert to kg and say so in notes.
+- If a packing list is present, copy its package count, package kind, gross and net weight onto the matching invoice lines. Do not create duplicate lines for packing-list rows.
+- If weights are only given for the whole shipment, put them in the header and leave line weights null.
+- quantity, unit and unit_price as printed. total_price is the line amount as printed.
+- unit: short uppercase code (PCS, SET, KG, LTR, CTN, BOX, PR, M, DOZ, ROLL).
+- nos: total individual pieces for the line when it differs from quantity (for example 10 CTN x 24 PCS = 240); otherwise null.
+- packages / package_type: number and kind of outer packages for the line (CTN, PLT, BAG, DRUM, BOX, CASE, BDL).
+- description: full commercial description including brand, model, material, size and use when shown.
+- hs_code: the most specific Harmonized System code you can justify from the description, 6 to 8 digits, dotted like "8215.20" or "6302.60.10". hs_confidence: "high", "medium" or "low".
+- origin and country fields: ISO 3166 alpha-2 codes (CN, SG, IN, AE...).
+- Do not put subtotal, tax, freight, insurance, handling or discount rows in items. Put freight, insurance, other charges and discount amounts in the header.
+- transport_mode: Sea, Air, Road, Post or Courier. Dates as YYYY-MM-DD.
+Reply with only JSON in exactly this shape:
+${SHAPE}`;
+}
+
+$("#readBtn").onclick = async () => {
+  if(!pages.length) return;
+  let maxImg = 0, useApi = false;
+  if(sample){
+    let limits = null; try{ limits = await sample.limits(); }catch(e){}
+    maxImg = limits?.images?.maxCount || 0;
+  }
+  if(!maxImg){
+    if(apiKey()){ useApi = true; maxImg = 20; }
+    else { $("#keybox").hidden=false; $("#keybox").open=true; $("#apiKey").focus(); setStatus("err","Add your Anthropic API key above to read documents. You can still type the lines in by hand."); return; }
+  }
+  const batches = []; for(let i=0;i<pages.length;i+=maxImg) batches.push(pages.slice(i,i+maxImg));
+  ctl = new AbortController(); $("#stopBtn").hidden=false; $("#readBtn").disabled=true;
+  const results = [];
+  try{
+    for(let b=0;b<batches.length;b++){
+      const batch = batches[b];
+      setStatus("busy", `Reading ${batch.length} page${batch.length>1?"s":""}${batches.length>1?` (batch ${b+1} of ${batches.length})`:""}. Dense invoices take up to a minute.`);
+      const data = useApi ? await apiRead(buildPrompt(batch,b,batches.length), batch.map(p=>p.blob), ctl.signal) : await sample.json(buildPrompt(batch,b,batches.length), {
+        images: batch.map(p=>p.blob), signal: ctl.signal, modelTier:"default",
+        onText: ({text}) => setStatus("busy", `Writing out lines${batches.length>1?` (batch ${b+1} of ${batches.length})`:""}… ${Math.round(text.length/100)/10}k characters`)
+      });
+      if(data && typeof data==="object") results.push(data);
+    }
+    applyResults(results);
+    const n = results.reduce((a,r)=>a+(Array.isArray(r.items)?r.items.length:0),0);
+    setStatus("ok", `Read ${n} line${n===1?"":"s"}. Check each line against the page, then review the checks below.`);
+  }catch(e){
+    const msg = {
+      cancelled:"Stopped.",
+      not_granted:"Claude access was not allowed for this page, so the documents can't be read. You can still type the lines in.",
+      sampling_disabled:"Claude isn't available on this account, so the documents can't be read.",
+      rate_limited:"Too many requests just now, or your usage limit was reached. Wait a moment and try again.",
+      session_expired:"Your Claude session has expired. Sign in again, then read the documents.",
+      image_rejected:"One of the pages could not be sent. Try a JPG or PNG under 20 MB.",
+      images_unavailable:"This view cannot send images to Claude.",
+      invalid_json:"Claude's answer could not be turned into lines. Try again, or read fewer pages at once.",
+      prompt_too_large:"Too much text in one go. Remove some pages and read them in two rounds.",
+      refused:"Claude declined to read these pages. Check they are trade documents.",
+      empty_completion:"Claude returned nothing for these pages. Try a clearer scan.",
+      bad_key:"The API key was rejected. Check it in the API key box.",
+      bad_model:"That model name wasn't found. Check the Model field in the API key box."
+    }[e?.code] || "Reading failed because of a connection or service error. Try again.";
+    if(results.length){ applyResults(results); setStatus("err", msg + " Lines from earlier batches were kept."); }
+    else setStatus(e?.code==="cancelled"?"busy":"err", msg);
+    if(e?.code==="cancelled") setStatus(null);
+  }finally{
+    ctl=null; $("#stopBtn").hidden=true; renderPages();
+  }
+};
+$("#stopBtn").onclick = () => ctl?.abort();
+
+/* ---------- standalone mode: Anthropic API direct from the browser ---------- */
+const KEY_STORE = "declaration-desk-key";
+function apiKey(){ return ($("#apiKey").value || "").trim(); }
+try{ $("#apiKey").value = localStorage.getItem(KEY_STORE) || ""; $("#modelIn").value = localStorage.getItem(KEY_STORE+"-model") || "claude-sonnet-5"; }catch(e){}
+function keyLabel(){ $("#keyState").textContent = apiKey() ? "· saved" : "· not set"; }
+$("#apiKey").addEventListener("input", () => { try{ localStorage.setItem(KEY_STORE, apiKey()); }catch(e){} keyLabel(); });
+$("#modelIn").addEventListener("input", e => { try{ localStorage.setItem(KEY_STORE+"-model", e.target.value.trim()); }catch(err){} });
+keyLabel();
+const blobToB64 = b => new Promise((res,rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(b); });
+async function apiRead(prompt, blobs, signal){
+  const content = [];
+  for(const b of blobs) content.push({type:"image", source:{type:"base64", media_type:b.type||"image/jpeg", data: await blobToB64(b)}});
+  content.push({type:"text", text: prompt});
+  let res;
+  try{
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST", signal,
+      headers:{"content-type":"application/json","x-api-key":apiKey(),"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body: JSON.stringify({model: ($("#modelIn").value||"claude-sonnet-5").trim(), max_tokens:16000, messages:[{role:"user", content}]})
+    });
+  }catch(e){ throw {code: e?.name==="AbortError" ? "cancelled" : "upstream_error"}; }
+  if(!res.ok){
+    const code = res.status===401 ? "bad_key" : res.status===429 ? "rate_limited" : res.status===413 ? "prompt_too_large" : res.status===404 ? "bad_model" : "upstream_error";
+    throw {code};
+  }
+  const out = await res.json();
+  const text = (out.content||[]).filter(c=>c.type==="text").map(c=>c.text).join("");
+  if(!text.trim()) throw {code:"empty_completion"};
+  const tryParse = s => { try{ return JSON.parse(s); }catch(e){ return undefined; } };
+  let v = tryParse(text.trim());
+  if(v===undefined){ const m = text.match(/```(?:json)?\s*([\s\S]*?)```/); if(m) v = tryParse(m[1]); }
+  if(v===undefined){ const a = text.indexOf("{"), z = text.lastIndexOf("}"); if(a>=0 && z>a) v = tryParse(text.slice(a,z+1)); }
+  if(v===undefined) throw {code:"invalid_json"};
+  return v;
+}
+
+function applyResults(results){
+  const replace = $("#replaceChk").checked || state.example;
+  if(replace){ state.header = Object.fromEntries(HKEYS.map(k=>[k,null])); state.items=[]; state.notes=[]; }
+  state.example=false; $("#exampleBanner").hidden=true;
+  for(const r of results){
+    const h = r.header || {};
+    for(const k of HKEYS){
+      const v = HNUM.has(k) ? num(h[k]) : (h[k]==null ? null : String(h[k]).trim());
+      if((state.header[k]===null || state.header[k]===undefined || state.header[k]==="") && v!==null && v!=="") state.header[k]=v;
+    }
+    for(const it of (Array.isArray(r.items)?r.items:[])){
+      const row = {};
+      for(const [k] of ICOLS) row[k] = INUM.has(k) ? num(it[k]) : (it[k]==null ? "" : String(it[k]).trim());
+      row.hs_confidence = ["high","medium","low"].includes(it.hs_confidence) ? it.hs_confidence : "low";
+      if(row.description || row.total_price!==null) state.items.push(row);
+    }
+    if(Array.isArray(r.notes)) state.notes.push(...r.notes.filter(Boolean).map(String));
+  }
+  if(!num(state.rate) && String(state.header.currency||"").toUpperCase()==="USD") state.rate = 15.42;
+  renderAll();
+}
+
+/* ---------- export ---------- */
+function exportRows(){
+  const H = state.header, v = values(), goods = sum("total_price");
+  const charges = v.freight + v.insurance + v.other, disc = num(H.discount)||0, rate = num(state.rate)||0;
+  return state.items.map((it,i) => {
+    const share = goods ? (num(it.total_price)||0)/goods : 0;
+    const price = (num(it.total_price)||0) - disc*share;
+    const cif = price + charges*share;
+    return {
+      "Item No":i+1, "Commodity Code (33)":it.hs_code||"", "Description (31)":it.description||"",
+      "Country of Origin (34)":it.origin||H.country_of_origin||"", "No. of Packages (31)":num(it.packages),
+      "Kind of Packages (31)":it.package_type||"", "Gross Mass kg (35)":num(it.gross_weight_kg), "Net Mass kg (38)":num(it.net_weight_kg),
+      "Supplementary Qty (41)":num(it.quantity), "Supp. Unit":it.unit||"", "Nos":num(it.nos),
+      "Unit Price":num(it.unit_price), "Item Price FCY (42)":+price.toFixed(2), "Currency":H.currency||"",
+      "Freight FCY":+(v.freight*share).toFixed(2), "Insurance FCY":+(v.insurance*share).toFixed(2), "Other FCY":+(v.other*share).toFixed(2),
+      "CIF FCY":+cif.toFixed(2), "CIF MVR":rate?+(cif*rate).toFixed(2):null, "HS Confidence":it.hs_confidence||""
+    };
+  });
+}
+function headerRows(){
+  const rows = HEADER.flatMap(([g,f]) => f.map(([k,label,box]) => ({Section:g, Box:box||"", Field:label, Value:state.header[k] ?? ""})));
+  const v = values();
+  rows.push({Section:"Values",Box:"23",Field:"Exchange rate to MVR",Value:num(state.rate) ?? ""});
+  rows.push({Section:"Values",Box:"",Field:"CIF (foreign currency)",Value:+v.cif.toFixed(2)});
+  rows.push({Section:"Values",Box:"",Field:"CIF (MVR)",Value:num(state.rate)?+v.cifMvr.toFixed(2):""});
+  return rows;
+}
+function baseName(){ return ("SAD " + (state.header.invoice_no || "worksheet")).replace(/[\\/:*?"<>|]+/g,"-"); }
+function toCSV(rows){
+  if(!rows.length) return "";
+  const cols = Object.keys(rows[0]);
+  const cell = v => { const s = v==null?"":String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; };
+  return [cols.map(cell).join(","), ...rows.map(r => cols.map(c=>cell(r[c])).join(","))].join("\r\n");
+}
+async function offer(filename, data){
+  if(!downloads){
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(data instanceof Blob ? data : new Blob([data]));
+    a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    toast(`Saved ${filename}`); return;
+  }
+  try{ await downloads.save({filename, data}); toast(`Saved ${filename}`); }
+  catch(e){
+    const m = {declined:"Download cancelled.",rate_limited:"A download prompt is already open.",extension_not_enabled:"Excel files can't be saved in this view. Use CSV instead.",rejected_extension:"That file type can't be saved here. Use CSV instead."}[e?.code];
+    toast(m || "The file could not be saved in this view. Use Copy lines instead.");
+  }
+}
+$("#xlsxBtn").onclick = () => {
+  if(!state.items.length){ toast("Add or read some lines first."); return; }
+  if(!window.XLSX){ toast("Excel writer did not load. Use CSV instead."); return; }
+  const wb = XLSX.utils.book_new();
+  const hs = XLSX.utils.json_to_sheet(headerRows()); hs["!cols"]=[{wch:18},{wch:5},{wch:24},{wch:42}];
+  const is = XLSX.utils.json_to_sheet(exportRows()); is["!cols"]=[{wch:7},{wch:14},{wch:48},{wch:10},{wch:9},{wch:9},{wch:11},{wch:11},{wch:11},{wch:8},{wch:8},{wch:10},{wch:12},{wch:8},{wch:10},{wch:10},{wch:10},{wch:11},{wch:12},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, hs, "Header");
+  XLSX.utils.book_append_sheet(wb, is, "Items");
+  const out = XLSX.write(wb, {bookType:"xlsx", type:"array"});
+  offer(baseName()+".xlsx", new Uint8Array(out));
+};
+$("#csvBtn").onclick = () => { if(!state.items.length){ toast("Add or read some lines first."); return; } offer(baseName()+".csv", "﻿"+toCSV(exportRows())); };
+$("#copyBtn").onclick = async () => {
+  const rows = exportRows(); if(!rows.length){ toast("No lines to copy."); return; }
+  const cols = Object.keys(rows[0]);
+  const tsv = [cols.join("\t"), ...rows.map(r => cols.map(c => r[c]==null?"":String(r[c]).replace(/\t|\n/g," ")).join("\t"))].join("\n");
+  try{ await navigator.clipboard.writeText(tsv); toast(`Copied ${rows.length} lines. Paste into Excel.`); }
+  catch(e){
+    const ta = document.createElement("textarea"); ta.value=tsv; ta.className="in"; ta.style.cssText="width:100%;height:140px;margin-top:10px;font-family:var(--mono);font-size:12px";
+    $("#copyBtn").closest(".panel-b").appendChild(ta); ta.select(); toast("Clipboard blocked. The lines are selected below; copy them with your keyboard.");
+  }
+};
+
+/* ---------- boot ---------- */
+function renderAll(){
+  $("#exampleBanner").hidden = !state.example;
+  $("#rateIn").value = fmtIn(state.rate);
+  renderHeader(); renderItems();
+  const notes = state.notes||[]; $("#notes").hidden = !notes.length;
+  $("#notes").innerHTML = notes.map(n => `<li>${esc(n)}</li>`).join("");
+  refresh();
+}
+renderAll(); renderPages();
+
+const standalone = () => { $("#keybox").hidden = false; if(!apiKey()) $("#keybox").open = true; };
+if(window.claude?.use){
+  claude.use("sample").then(s => { sample = s; if(!s) standalone(); });
+  claude.use("downloads").then(d => { downloads = d; });
+} else {
+  standalone();
+}
+})();
+</script>
+</body>
+</html>
